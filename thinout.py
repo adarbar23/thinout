@@ -1,13 +1,13 @@
 
 from datetime import date, timedelta
+import os.path, types
 
 
 class Item(object):
-   def __init__(self, date, weight=None):
+   def __init__(self, date):
       self.date = date
-      if weight is None:
-         weight = lambda s: 1.0
-      self.weight = weight
+   def weight(self, context, index):
+      return 1.0
 
 class Bucket(object):
    def __init__(self, begin, end, capacity):
@@ -48,11 +48,14 @@ class Bucket(object):
       rm = None
       for i in range(begin, end):
          hole = items[i+1].date - items[i-1].date
-         weight = hole.days * 1.0 * items[i].weight()
+         weight = hole.days * 1.0 * items[i].weight(items, i)
          if (rmweight is None) or (weight < rmweight):
             rmweight = weight
             rm = i
       return rm
+
+   def print_state(self):
+      print "%s - %s (%d/%d)" % (self.begindate, self.enddate, self.endidx - self.beginidx, self.capacity)
 
 class Thinout(object):
    def __init__(self, intervalls, items, enddate=None):
@@ -110,9 +113,10 @@ class Thinout(object):
          s += 'x'
          prev = self.items[0].date
          for item in self.items[1:]:
-            s += ' ' * ((item.date - prev).days - 1)
+            s += ' ' * (item.date.toordinal() - prev.toordinal() - 1)
             s += 'x'
             prev = item.date
+         s += ' ' * (self.enddate.toordinal() - prev.toordinal() - 1)
       return s
 
    def buckets_timeline(self):
@@ -131,22 +135,34 @@ class Thinout(object):
       return s
 
    def print_overview(self):
-      itl = self.items_timeline() + '_'
+      itl = self.items_timeline()
       btl = self.buckets_timeline()
       if 0:
          lim = max(len(itl), len(btl))
-         itl = '_' * (lim - len(itl)) + itl
-         btl = '_' * (lim - len(btl)) + btl
+         itl = '.' * (lim - len(itl)) + itl
+         btl = '.' * (lim - len(btl)) + btl
          print itl
          print btl
       else:
+         endofs = self.buckets[-1].enddate.toordinal() - self.items[-1].date.toordinal()
+         if endofs > 0:
+            # buckets later than items
+            itl += ' ' * endofs
+         if endofs < 0:
+            # later items than buckets
+            btl += '.' * (-endofs)
+
          lim = len(itl)
          if lim > len(btl):
-            btl = '_' * (lim - len(btl)) + btl
+            btl = '.' * (lim - len(btl)) + btl
+
          print itl
          print btl[-lim:]
       print
 
+   def print_weights(self):
+      for i, item in enumerate(self.items):
+         print item.path, item.weight(self.items, i)
 
 def testseries():
    intervalls = [
@@ -195,18 +211,10 @@ def testseries():
 
    print "reamining:", len(items)
 
-#testseries()
-
 class FileItem(Item):
-   def __init__(self, path, weight=None):
-      Item.__init__(self, date.fromtimestamp(os.path.getmtime(path)), weight)
+   def __init__(self, path):
+      Item.__init__(self, date.fromtimestamp(os.path.getmtime(path)))
       self.path = path
-
-def thinout_files(intervalls, pathes):
-   items = [FileItem(p) for p in pathes]
-   th = Thinout(intervalls, items)
-   for rm in th.extract_rm_items():
-      print rm.path
 
 if __name__ == '__main__':
    testseries()
