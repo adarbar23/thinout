@@ -2,6 +2,34 @@
 from datetime import date, timedelta
 import os.path, types
 
+class Timeline(dict):
+   def first(self):
+      ks = self.keys()
+      ks.sort()
+      return ks[0] if ks else None
+   def last(self):
+      ks = self.keys()
+      ks.sort()
+      return ks[-1] if ks else None
+
+   def serialize(self, begin=None, end=None, empty=' '):
+      if begin is None:
+         begin = self.first()
+      if end is None:
+         end = self.last()
+
+      if begin is None:
+         return ''
+
+      s = ''
+      pos = begin
+      while pos < end:
+         if pos in self:
+            s += self[pos]
+         else:
+            s += empty
+         pos = pos + timedelta(days=1)
+      return s
 
 class Item(object):
    def __init__(self, date):
@@ -64,6 +92,7 @@ class Thinout(object):
          enddate = date.today() + timedelta(days=1)
       self.enddate = enddate
       self._make_buckets(intervalls)
+      self.removed = []
 
    def _make_buckets(self, intervalls):
       buckets = []
@@ -105,59 +134,53 @@ class Thinout(object):
          if rm is None:
             return
          else:
+            self.removed.append(rm)
             yield rm
 
    def items_timeline(self):
-      s = ''
-      if self.items:
-         s += 'x'
-         prev = self.items[0].date
-         for item in self.items[1:]:
-            s += ' ' * (item.date.toordinal() - prev.toordinal() - 1)
-            s += 'x'
-            prev = item.date
-         s += ' ' * (self.enddate.toordinal() - prev.toordinal() - 1)
-      return s
+      tl = Timeline()
+      for item in self.removed:
+         tl[item.date] = '.'
+      for item in self.items:
+         tl[item.date] = 'x'
+      return tl
 
    def buckets_timeline(self):
-      s = '['
+      tl = Timeline()
       for b in self.buckets:
-         span = b.enddate.toordinal() - b.begindate.toordinal()
+         tl[b.begindate] = '['
+         tl[b.enddate] = '['
+
+         # add labels
+         span = b.enddate.toordinal() - b.begindate.toordinal() - 1
          scap = str(b.capacity)
          lcap = len(scap)
-         if span >= lcap + 1:
-            s += ' ' * ((span-lcap-1)/2)
-            s += scap
-            s += ' ' * (span-lcap-1 - (span-lcap-1)/2)
-         else:
-            s += ' ' * (span-1)
-         s += '['
-      return s
+         if span >= lcap:
+            ofs = (span-lcap) / 2
+            for i in range(lcap):
+               tl[b.begindate + timedelta(days=ofs+i+1)] = scap[i]
+      return tl
 
    def print_overview(self):
       itl = self.items_timeline()
       btl = self.buckets_timeline()
-      if 0:
-         lim = max(len(itl), len(btl))
-         itl = '.' * (lim - len(itl)) + itl
+      print itl.serialize(end=self.enddate)
+      print btl.serialize(begin=itl.first(), end=self.enddate+timedelta(days=1))
+      return
+      endofs = self.buckets[-1].enddate.toordinal() - self.items[-1].date.toordinal()
+      if endofs > 0:
+         # buckets later than items
+         itl += ' ' * endofs
+      if endofs < 0:
+         # later items than buckets
+         btl += '.' * (-endofs)
+
+      lim = len(itl)
+      if lim > len(btl):
          btl = '.' * (lim - len(btl)) + btl
-         print itl
-         print btl
-      else:
-         endofs = self.buckets[-1].enddate.toordinal() - self.items[-1].date.toordinal()
-         if endofs > 0:
-            # buckets later than items
-            itl += ' ' * endofs
-         if endofs < 0:
-            # later items than buckets
-            btl += '.' * (-endofs)
 
-         lim = len(itl)
-         if lim > len(btl):
-            btl = '.' * (lim - len(btl)) + btl
-
-         print itl
-         print btl[-lim:]
+      print itl
+      print btl[-lim:]
       print
 
    def print_weights(self):
