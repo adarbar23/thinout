@@ -76,8 +76,9 @@ class Bucket(object):
       rm = None
       for i in range(begin, end):
          hole = items[i+1].date - items[i-1].date
-         weight = hole.days * 1.0 * items[i].weight(items, i)
-         if (rmweight is None) or (weight < rmweight):
+         weight = items[i].weight(items, i) * 1.0 / hole.days
+         #print "%s: adj. del priority %f" % (items[i].date, weight)
+         if (rmweight is None) or (weight > rmweight):
             rmweight = weight
             rm = i
       return rm
