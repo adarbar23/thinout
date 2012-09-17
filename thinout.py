@@ -202,6 +202,10 @@ class Thinout(object):
 
    def print_weights(self):
       print "weights:"
+      print "               .- item weight"
+      print "               |       .- context adjusted item weigth"
+      print "               |       |      .- hole size on removal"
+      print "               |       |      |      .- weight adjusted hole size"
       for i, item in enumerate(self.items):
          wbase = item.weight(self.items, i)
          wctx = self.context_weight(i)
