@@ -54,7 +54,7 @@ class Bucket(object):
       '''Check if there are too many items in the bucket'''
       return (self.endidx - self.beginidx) > self.capacity
 
-   def find_rmitem(self, items):
+   def find_rmitem(self, th):
       '''find item to remove in [begin:end['''
       begin = self.beginidx
       end = self.endidx
@@ -64,23 +64,23 @@ class Bucket(object):
       if begin+1 == end:
          # one item
          return begin
-      if end == len(items):
-         # keep globally newest item
-         end -= 1
-      if begin+1 == end:
-         # one item remaining
-         return begin
-      if begin == 0:
-         # keep globally oldest item
-         begin += 1
+      #if end == len(th.items):
+      #   # keep globally newest item
+      #   end -= 1
+      #if begin+1 == end:
+      #   # one item remaining
+      #   return begin
+      #if begin == 0:
+      #   # keep globally oldest item
+      #   begin += 1
 
       # check items
       rmweight = None
       rm = None
       for i in range(begin, end):
-         hole = items[i+1].date - items[i-1].date
-         weight = items[i].weight(items, i) * 1.0 / hole.days
-         #print "%s: adj. del priority %f" % (items[i].date, weight)
+         weight = th.context_weight(i) / th.item_hole(i)
+         #weight = th.items[i].weight(th.items, i) * 1.0 / hole.days
+         #print "%s: adj. del priority %f" % (th.items[i].date, weight)
          if (rmweight is None) or (weight > rmweight):
             rmweight = weight
             rm = i
@@ -123,10 +123,22 @@ class Thinout(object):
             idx += 1
          bucket.endidx = idx
 
+   def context_weight(self, idx):
+      if idx == 0:
+         return 0.0
+      if idx == len(self.items)-1:
+         return 0.0
+      return self.items[idx].weight(self.items, idx) * 2.0 / (self.items[idx-1].weight(self.items, idx-1) + self.items[idx+1].weight(self.items, idx+1))
+
+   def item_hole(self, idx):
+      if idx == 0 or idx == len(self.items)-1:
+         return float('inf')
+      return (self.items[idx+1].date - self.items[idx-1].date).days * 1.0
+
    def _extract_rm_item(self):
       for bucket in self.buckets:
          if bucket.too_many():
-            rmidx = bucket.find_rmitem(self.items)
+            rmidx = bucket.find_rmitem(self)
             rm = self.items[rmidx]
             del self.items[rmidx]
             self._set_bucket_indexes()
@@ -191,8 +203,28 @@ class Thinout(object):
    def print_weights(self):
       print "weights:"
       for i, item in enumerate(self.items):
-         print "  %s: %s" % (item.date, item.weight(self.items, i))
+         wbase = item.weight(self.items, i)
+         wctx = self.context_weight(i)
 
+         # make labels
+         l1 = "%4.1f" % wbase
+         if wbase != wctx:
+            l2 = " ~> %5.2f" % wctx
+         else:
+            l2 = ''
+
+         l3 = ''
+         if i != 0 and i != len(self.items)-1:
+            hbase = self.item_hole(i)
+            hctx = hbase / wctx
+            l3 = "%2.0f" % hbase
+            if hctx != hbase:
+               l3 += " ~> %4.1f" % hctx
+            else:
+               l3 += '    %4.1f' % hctx
+            l3 = '(%s)' % l3
+
+         print " %s: %s%9s  %s" % (item.date, l1, l2, l3)
 
 def testseries():
    intervalls = [
