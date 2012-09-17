@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 import os.path, types
 
+
 class Timeline(dict):
    def first(self):
       ks = self.keys()
@@ -31,11 +32,13 @@ class Timeline(dict):
          pos = pos + timedelta(days=1)
       return s
 
+
 class Item(object):
    def __init__(self, date):
       self.date = date
    def weight(self, context, index):
       return 1.0
+
 
 class Bucket(object):
    def __init__(self, begin, end, capacity):
@@ -85,6 +88,7 @@ class Bucket(object):
 
    def print_state(self):
       print "%s - %s (%d/%d)" % (self.begindate, self.enddate, self.endidx - self.beginidx, self.capacity)
+
 
 class Thinout(object):
    def __init__(self, intervalls, items, enddate=None):
@@ -185,8 +189,10 @@ class Thinout(object):
       print
 
    def print_weights(self):
+      print "weights:"
       for i, item in enumerate(self.items):
-         print item.path, item.weight(self.items, i)
+         print "  %s: %s" % (item.date, item.weight(self.items, i))
+
 
 def testseries():
    intervalls = [
@@ -235,10 +241,12 @@ def testseries():
 
    print "reamining:", len(items)
 
+
 class FileItem(Item):
    def __init__(self, path):
       Item.__init__(self, date.fromtimestamp(os.path.getmtime(path)))
       self.path = path
+
 
 if __name__ == '__main__':
    testseries()
