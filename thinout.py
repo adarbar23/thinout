@@ -284,6 +284,43 @@ class FileItem(Item):
       self.path = path
 
 
+def run(items, intervalls):
+   import optparse, datetime
+   ap = optparse.OptionParser("Remove some older items, to make room for new ones")
+   ap.add_option('--timeline', '-t', action="store_true", help="Just show timeline of current items")
+   ap.add_option('--weights', '-w', action="store_true", help="Just show weights of current items")
+   ap.add_option('--verbose', '-v', action="store_true", help="More output")
+   ap.add_option('--quiet', '-q', action="store_true", help="Less output")
+   ap.add_option('--delete', '-d', action="store_true", help="Remove files needing thinout")
+   ap.add_option('--offset', '-o', action="store", type=int, default=0, help="Number of days to offset bucket calculation")
+   (args, _) = ap.parse_args()
+
+   end = datetime.date.today() + datetime.timedelta(days=1 + args.offset)
+   th = Thinout(intervalls, items, enddate=end)
+
+   if args.weights or args.verbose:
+      th.print_weights()
+
+   for rm in th.extract_rm_items():
+      if args.delete:
+         if not args.quiet:
+            print "rm", rm.path
+         os.unlink(rm.path)
+      else:
+         if not args.quiet:
+            print "redundant", rm.path
+
+   if args.timeline or args.verbose:
+      th.print_overview()
+   if args.verbose:
+      for b in th.buckets:
+         b.print_state()
+
+   if args.verbose:
+      total = sum(item.size for item in th.items)
+      print "%.2f GB remaining" % (total / (1.0*1024*1024*1024))
+
+
 if __name__ == '__main__':
    testseries()
 
