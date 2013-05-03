@@ -2,7 +2,6 @@
 from datetime import date, timedelta
 import os.path, types
 
-
 class Timeline(dict):
    def first(self):
       ks = self.keys()
@@ -282,9 +281,19 @@ class FileItem(Item):
    def __init__(self, path):
       Item.__init__(self, date.fromtimestamp(os.path.getmtime(path)))
       self.path = path
+      self.size = os.path.getsize(path)
 
 
 def run(items, intervalls):
+   # if it's a string, treat it as a glob
+   if isinstance(items, basestring):
+      import glob
+      items = glob.glob(items)
+
+   # if it's a list of strings, make a list of items from it
+   if items and isinstance(items[0], basestring):
+      items = [FileItem(it) for it in items]
+
    import optparse, datetime
    ap = optparse.OptionParser("Remove some older items, to make room for new ones")
    ap.add_option('--timeline', '-t', action="store_true", help="Just show timeline of current items")
